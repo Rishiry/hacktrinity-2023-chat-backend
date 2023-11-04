@@ -3,8 +3,8 @@ import client from '../lib/database';
 
 const userSchema = new Schema('user', {
     displayName: { type: 'string' },
-    email: { type: 'string' },
-    hashedPassword: { type: 'string' }
+    provider: { type: 'string' },
+    
 });
 
 /* use the client to create a Repository just for Persons */

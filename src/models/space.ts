@@ -8,7 +8,7 @@ const spaceSchema = new Schema('space', {
   geo_center: { type: 'point' },
   range: { type: 'number' },
   user_limit: { type: 'number' },
-  time_to_live: { type: 'date' }
+  expirey: { type: 'date' }
 })
 
 /* use the client to create a Repository just for Persons */
