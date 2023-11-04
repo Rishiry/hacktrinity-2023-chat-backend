@@ -142,6 +142,7 @@ space.get('/space/:id/history', async ({ query, params, set }) => {
         const streamKey = `space:${id}:chat`;
         const messages = await connection.XRANGE(streamKey, '-', timestamp, {COUNT: limit_int});
 
+
         return JSON.stringify(messages);
 
     } catch (error) {
@@ -149,4 +150,26 @@ space.get('/space/:id/history', async ({ query, params, set }) => {
         return { error: error };
     }
 }, { query: HistoryQuery });
+
+
+
+
+space.ws('/space/:id/stream', async ({ params, set }) => {
+    // stream the chat messages
+    // when a new message is added to the chat stream, send it to the client
+    // when a new user is added to the user stream, send it to the client
+    // when new connection is made, add the user to the user stream
+    // when connection is closed, remove the user from the user stream
+    // when a new message is sent, add it to the chat stream
+
+    const { id } = params;
+    const chatStreamKey = `space:${id}:chat`;
+    const userStreamKey = `space:${id}:users`;
+
+    
+    
+
+});
+
+
 export default space;

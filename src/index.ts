@@ -7,7 +7,7 @@ import { space } from './routes/space'
 const app = new Elysia()
   .use(swagger())
   .use(cors({
-    origin: '*'
+    origin: true,
   }))
   .use(space)
   .listen({
