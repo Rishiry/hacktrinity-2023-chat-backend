@@ -36,8 +36,6 @@ space.post('/space', async ({ body, set }) => {
         });
 
 
-        console.log(newSpace[EntityId]);
-
         const chatStreamKey = `space:${newSpace[EntityId]}:chat`;
         connection.XADD(chatStreamKey, '*', { 'type': 'system', 'message': 'Welcome to the space!' });
 
@@ -154,20 +152,35 @@ space.get('/space/:id/history', async ({ query, params, set }) => {
 
 
 
-space.ws('/space/:id/stream', async ({ params, set }) => {
-    // stream the chat messages
-    // when a new message is added to the chat stream, send it to the client
-    // when a new user is added to the user stream, send it to the client
-    // when new connection is made, add the user to the user stream
-    // when connection is closed, remove the user from the user stream
-    // when a new message is sent, add it to the chat stream
+space
+.ws('/ws', {
+    message(ws, message) {
+        ws.send(message)
+    }
+})
 
-    const { id } = params;
-    const chatStreamKey = `space:${id}:chat`;
-    const userStreamKey = `space:${id}:users`;
+.ws('/space/:id/stream', {
 
-    
-    
+
+    message(ws, message) {
+        ws.send(message)
+    },
+
+    async open(ws) {
+        const chatStreamKey = `space:${ws.data.params.id}:chat`;
+        const userStreamKey = `space:${ws.data.params.id}:users`;
+
+        const add = await connection.xAdd(userStreamKey, '*', {'user': ws.id.toString()});
+        
+        ws.data.id = add;
+    },
+
+    close(ws) {
+        const userStreamKey = `space:${ws.data.params.id}:users`;
+        connection.xDel(userStreamKey, ws.data.id);
+    },
+
+      
 
 });
 
