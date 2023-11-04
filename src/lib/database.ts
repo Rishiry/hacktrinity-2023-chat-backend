@@ -1,16 +1,8 @@
 import { Client } from 'redis-om'
 import { createClient } from 'redis'
 
-/* pulls the Redis URL from .env */
-const url = process.env.REDIS_URL
-
 /* create a connection to Redis with Node Redis */
-export const connection = createClient({
-    socket: {
-        host: 'localhost',
-        port: 6379,
-    }
-});
+export const connection = createClient({url: process.env.REDIS_URL || 'redis://localhost:6379'});
 
 await connection.connect()
 
