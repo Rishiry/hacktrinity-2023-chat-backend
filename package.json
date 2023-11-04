@@ -6,7 +6,14 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
-    "elysia": "latest"
+    "@elysiajs/jwt": "^0.7.0",
+    "@elysiajs/swagger": "^0.7.4",
+    "@node-redis/client": "^1.0.6",
+    "@types/node": "^16.18.60",
+    "elysia": "latest",
+    "redis": "^4.6.10",
+    "redis-om": "^0.4.3",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "bun-types": "latest"
