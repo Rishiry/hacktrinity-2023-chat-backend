@@ -38,8 +38,11 @@ space.post('/space', async ({ body, set }) => {
 
         console.log(newSpace[EntityId]);
 
-        const streamKey = `space:${newSpace[EntityId]}:chat`;
-        connection.XADD(streamKey, '*', { 'type': 'system', 'message': 'Welcome to the space!' });
+        const chatStreamKey = `space:${newSpace[EntityId]}:chat`;
+        connection.XADD(chatStreamKey, '*', { 'type': 'system', 'message': 'Welcome to the space!' });
+
+        const userStreamKey = `space:${newSpace[EntityId]}:users`;
+        connection.XADD(userStreamKey, '*', { 'user': 'system' });
 
         return JSON.stringify({ EntityId: newSpace[EntityId] });
 
@@ -107,6 +110,12 @@ space.get('/space/:id', async ({ params, set }) => {
     try {
         const { id } = params;
         const space = await spaceRepository.fetch(id);
+
+        // XLEN for the user stream
+        const streamKey = `space:${id}:users`;
+        const users = await connection.XLEN(streamKey);
+
+        space.userCount = users;
 
         return JSON.stringify(space);
 
