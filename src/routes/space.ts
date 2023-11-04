@@ -4,6 +4,7 @@ import { Elysia, Context, RouteSchema, t } from 'elysia';
 import { connection } from '../lib/database';
 import { EntityId } from 'redis-om'
 import * as geolib from 'geolib';
+import { get } from 'http';
 
 
 export const space = new Elysia();
@@ -16,6 +17,12 @@ const SpaceBody = t.Object({
     user_limit: t.Number()
 });
 
+const getUserCount = (spaceId: string) => {
+    const streamKey = `space:${spaceId}:users`;
+    const users = connection.XLEN(streamKey).then((res) => res);
+
+    return users - 1;
+}
 
 space.post('/space', async ({ body, set }) => {
     try {
@@ -89,15 +96,33 @@ space.get('/space', async ({ query, set }) => {
             return distance <= space.range;
         });
 
-        // Add EntityId to each space
-        filteredSpacesByRange.forEach(space => {
-            space.EntityId = space[EntityId];
-        });
 
-        return JSON.stringify(filteredSpacesByRange);
+        const formatSpace = async (space) => {
+            var userCount = await getUserCount(space[EntityId]).then((res) => res);
+            return {
+                EntityId: space[EntityId],
+                name: space.name,
+                created_at: space.created_at,
+                geo_center: space.geo_center,
+                range: space.range,
+                user_limit: space.user_limit,
+                user_count: userCount
+            };
+        }
+
+
+        const final = await Promise.all(filteredSpacesByRange.map(formatSpace));
+
+
+
+
+        console.log(final);
+
+        return JSON.stringify({ final });
 
     } catch (error) {
         set.status = 500;
+        console.log(error);
         return { error: error };
     }
 }, { query: GeoLocationQuery });
@@ -109,11 +134,8 @@ space.get('/space/:id', async ({ params, set }) => {
         const { id } = params;
         const space = await spaceRepository.fetch(id);
 
-        // XLEN for the user stream
-        const streamKey = `space:${id}:users`;
-        const users = await connection.XLEN(streamKey);
 
-        space.userCount = users;
+        space.user_count = await getUserCount(id);
 
         return JSON.stringify(space);
 
@@ -126,8 +148,8 @@ space.get('/space/:id', async ({ params, set }) => {
 
 
 const HistoryQuery = t.Object({
-    timestamp: t.String({ optional: true}),
-    limit: t.String({ optional: true})
+    timestamp: t.String({ optional: true }),
+    limit: t.String({ optional: true })
 });
 
 space.get('/space/:id/history', async ({ query, params, set }) => {
@@ -136,9 +158,9 @@ space.get('/space/:id/history', async ({ query, params, set }) => {
 
         const timestamp_int = parseInt(timestamp) || Date.now();
         const limit_int = parseInt(limit) || 10;
-        
+
         const streamKey = `space:${id}:chat`;
-        const messages = await connection.XRANGE(streamKey, '-', timestamp, {COUNT: limit_int});
+        const messages = await connection.XRANGE(streamKey, '-', timestamp, { COUNT: limit_int });
 
 
         return JSON.stringify(messages);
@@ -153,36 +175,46 @@ space.get('/space/:id/history', async ({ query, params, set }) => {
 
 
 space
-.ws('/ws', {
-    message(ws, message) {
-        ws.send(message)
-    }
-})
+    .ws('/ws', {
+        message(ws, message) {
+            message = JSON.parse(message);
+            // make sure we have display_name and message
+            if (!message.display_name || !message.message) {
+                return;
+            }
 
-.ws('/space/:id/stream', {
+            // get the chat stream key
+            const chatStreamKey = `space:${ws.data.params.id}:chat`;
+            
+            // add the message to the stream
+            connection.XADD(chatStreamKey, '*', { 'type': 'message', 'message': message.message, 'sender': message.display_name });
+
+        }
+    })
+
+    .ws('/space/:id/stream', {
 
 
-    message(ws, message) {
-        ws.send(message)
-    },
+        message(ws, message) {
+            ws.send(message)
+        },
 
-    async open(ws) {
-        const chatStreamKey = `space:${ws.data.params.id}:chat`;
-        const userStreamKey = `space:${ws.data.params.id}:users`;
+        async open(ws) {
+            const userStreamKey = `space:${ws.data.params.id}:users`;
 
-        const add = await connection.xAdd(userStreamKey, '*', {'user': ws.id.toString()});
-        
-        ws.data.id = add;
-    },
+            const add = await connection.xAdd(userStreamKey, '*', { 'user': ws.id.toString() });
 
-    close(ws) {
-        const userStreamKey = `space:${ws.data.params.id}:users`;
-        connection.xDel(userStreamKey, ws.data.id);
-    },
+            ws.data.id = add;
+        },
 
-      
+        close(ws) {
+            const userStreamKey = `space:${ws.data.params.id}:users`;
+            connection.xDel(userStreamKey, ws.data.id);
+        },
 
-});
+
+
+    });
 
 
 export default space;
